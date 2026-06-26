@@ -35,7 +35,7 @@ source      last traded   days ago  recent open  status
 Coinbase    2026-06-26    0         0.9988       live
 KuCoin      2026-06-26    0         0.9989       live
 ...
-Crypto.com  never         -         0.9950       DEAD (no volume in 300d window)
+Crypto.com  never         -         0.9950       DEAD (no volume in 1600d window)
 ```
 
 ### `--backtest` — would a zero-volume gate have mattered?
@@ -51,21 +51,16 @@ zero-volume gate changes the rate on 236/500 days; sources it drops: ['Crypto.co
 |median shift| from the gate: median 0.00 bps, max 4.02 bps
 ```
 
-The takeaway is deliberately honest: the gate is **correct and free** (it only ever
-drops verifiably dead data), but its effect on the published rate is **small**,
-because the median's outlier-robustness already isolates a *single* dead source. The
-gate's real value is insurance against **correlated staleness** (several thin sources
-freezing at once, which a median cannot absorb) and against the same effect at the
-**minute** granularity XRC actually reads. See the writeup linked below for the full
-multi-year and depeg-window analysis.
+Over ~500 days of overlapping venue data, the gate would have dropped Crypto.com on
+236/500 days. The daily median moved at most ~4 bps — one frozen quote at 0.995 barely
+shifts a nine-source median when the other eight are trading around 0.999.
 
 ## Scope and faithfulness
 
 - Targets the **USDT/USDC stablecoin anchor**, where the dead source lived. Point the
   instrument at `ICP_USDT` etc. to check the crypto path.
-- One request per source, no paging, so the window is whatever each venue returns by
-  default (months to years). For the paged multi-year reconstruction and the March
-  2023 USDC-depeg case, see the writeup.
+- `audit` deep-pages Crypto.com to 1600 days (API caps at 300/request). `backtest`
+  uses one request per source; Poloniex's 500-day cap sets the overlap window.
 - The `SOURCES` table mirrors XRC's own per-exchange request specs; adding or removing
   a venue is one line.
 
