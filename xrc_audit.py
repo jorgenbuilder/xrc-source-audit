@@ -85,9 +85,12 @@ SOURCES = {
 }
 
 
-def daily(source):
+def daily(source, *, deep=False):
     """{date: (open_usdt_in_usdc, volume)} from one daily request."""
-    rows = source["daily"]() if "daily" in source else source["rows"](fetch(source["url"](True)))
+    if deep and "daily" in source:
+        rows = source["daily"]()
+    else:
+        rows = source["rows"](fetch(source["url"](True)))
     return {day(ts): (price, vol) for ts, price, vol in rows}
 
 
@@ -96,7 +99,7 @@ def audit():
     print(f"{'source':<12}{'last traded':<14}{'days ago':<10}{'recent open':<13}status")
     for name, src in SOURCES.items():
         try:
-            d = daily(src)
+            d = daily(src, deep=True)
             traded = sorted(k for k, (p, v) in d.items() if v > 0)
             recent = d[max(d)][0]
             if not traded:
