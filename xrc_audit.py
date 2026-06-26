@@ -18,6 +18,7 @@ faithfully reconstructs what a zero-volume gate would have changed.
 import json, sys, time, urllib.request, statistics, datetime
 
 DAY = 86400
+HISTORY_DAYS = 1600
 
 
 def fetch(url):
@@ -27,6 +28,26 @@ def fetch(url):
 
 def day(ts_seconds):
     return datetime.datetime.utcfromtimestamp(ts_seconds).strftime("%Y-%m-%d")
+
+
+def cryptocom_daily():
+    """Crypto.com caps at 300 candles/request; page with end_ts for HISTORY_DAYS."""
+    candles, end_ts = [], None
+    while len(candles) < HISTORY_DAYS:
+        url = (
+            "https://api.crypto.com/exchange/v1/public/get-candlestick"
+            f"?instrument_name=USDT_USDC&timeframe=1D&count=300"
+        )
+        if end_ts:
+            url += f"&end_ts={end_ts}"
+        batch = fetch(url)["result"]["data"]
+        if not batch:
+            break
+        candles = batch + candles
+        end_ts = batch[0]["t"]
+        if len(batch) < 300:
+            break
+    return candles[-HISTORY_DAYS:]
 
 
 # One row per XRC stablecoin source. `url(daily)` builds the exact request; `rows`
@@ -59,13 +80,15 @@ SOURCES = {
         rows=lambda j: ((int(c[0]), 1 / float(c[5]), float(c[1])) for c in j["data"])),
     "Crypto.com": dict(
         url=lambda d: f"https://api.crypto.com/exchange/v1/public/get-candlestick?instrument_name=USDT_USDC&timeframe={'1D' if d else '1m'}&count=300",
-        rows=lambda j: ((int(c["t"]) // 1000, float(c["o"]), float(c["v"])) for c in j["result"]["data"])),
+        rows=lambda j: ((int(c["t"]) // 1000, float(c["o"]), float(c["v"])) for c in j["result"]["data"]),
+        daily=lambda: ((int(c["t"]) // 1000, float(c["o"]), float(c["v"])) for c in cryptocom_daily())),
 }
 
 
 def daily(source):
     """{date: (open_usdt_in_usdc, volume)} from one daily request."""
-    return {day(ts): (price, vol) for ts, price, vol in source["rows"](fetch(source["url"](True)))}
+    rows = source["daily"]() if "daily" in source else source["rows"](fetch(source["url"](True)))
+    return {day(ts): (price, vol) for ts, price, vol in rows}
 
 
 def audit():
